@@ -1,8 +1,10 @@
 # xswitch
 
+> 注意：基于杜老板的小樱桃的镜像
+
 很多朋友想试用FreeSWITCH，但是从源代码安装比较复杂。FreeSWITCH虽然有相应的安装包，但用起来也不那么方便。
 
-现在，Docker已经成了事实上的部署方式，我们xswitch.cn早已采用Docker容器化部署。为了大家更容易使用，我们做了这一镜像，希望对大家有用。
+现在，Docker已经成了事实上的部署方式，为了大家更容易使用，我们做了这一镜像，希望对大家有用。
 
 # 环境准备
 
@@ -17,28 +19,11 @@ Docker Compose也需要安装，但不是必须的，只是安装了能更方便
 
 本镜像支持在Linux、Mac、Windows宿主机上运行。
 
-# 快速上手
-
-很简单，先看命令：
-
-```
-git clone https://github.com/rts-cn/xswitch-free.git
-cd xswitch-free
-make setup # 可选，生成.env，修改生成的.env里的环境变量
-make start
-```
-
-首先，Clone本项目，然后进入`xswitch-free`目录，`make setup`会生成`.env`，里面是相关的环境变量，可以根据情况修改（一般至少要将EXT_IP改为你自己宿主机的IP）。最后`make start`会以NAT方式启动容器。
-
-启动后，你就可以用你称手的软电话注册到FreeSWITCH的IP上（默认端口5060），**用户名和密码任意**，打电话可以看到日志，注册两个不同的号码可以互拨，试一把看爽不爽。
-
-如果想进入控制台，可以打开另一个终端，执行`make cli`。
-
 # 环境变量
 
 以下环境变量，有相关的默认值
 
-* `SIP_PORT`：默认SIP端口
+* `FS_INTERNAL_SIP_PORT`：默认SIP端口
 * `SIP_TLS_PORT`：SIP TLS端口
 * `SIP_PUBLIC_PORT` SIP `public` Profile端口
 * `SIP_PUBLIC_TLS_PORT`：SIP `public` Profile TLS端口
@@ -47,24 +32,6 @@ make start
 * `EXT_IP`：宿主机IP，或公网IP，默认SIP Profile中的`ext-sip-ip`及`ext-rtp-ip`会用到它。
 * `FREESWITCH_DOMAIN`：默认的FreeSWITCH域
 * `LOCAL_NETWORK_ACL`：默认为`none`，在`host`网络模式下可以关闭。
-
-# 配置
-
-本镜像没有使用FreeSWITCH的默认配置。FreeSWITCH的默认配置为了展示FreeSWITCH各种强大的功能设计，复杂且初学者难以理解，所以，我们使用了最小化的配置，目标是让使用者快速上手，并进一步细化打造自己的镜像和容器。
-
-以下配置接受任何注册和打电话。也就是说，你可以用软电话。
-
-```xml
-<param name="accept-blind-reg" value="true"/>
-<param name="accept-blind-auth" value="true"/>
-```
-
-如果没有配置`EXT_IP`环境变量，需要将配置中如下内容注释掉。
-
-```xml
-<param name="ext-rtp-ip" value="$${ext_rtp_ip}"/>
-<param name="ext-sip-ip" value="$${ext_sip_ip}"/>
-```
 
 # 常用命令
 
@@ -77,20 +44,11 @@ make start
 * `make bash`：进入容器并进入`bash` Shell环境。可以进一步执行`fs_cli`等。
 * `make stop`：停止容器。
 * `make pull`：更新镜像，更新后可以用。
-* `make get-sounds`：下载声音文件到本地，需要有`wget`工具。
 
 如果没有安装Docker Compose，也可以直接使用Docker命令启动容器，如：
 
 ```bash
-docker run --rm --name xswitch-free \
-    -p 5060:5060/udp \
-    -p 2000-2020:2000-2020/udp \
-    -e ext_ip=192.168.7.7 \
-    -e sip_port=5060 \
-    -e sip_public_port=5080 \
-    -e rtp_start=2000 \
-    -e rtp_end=2010 \
-    ccr.ccs.tencentyun.com/xswitch/xswitch-free
+docker run -it --network host --name freeswitch -v /opt/freeswitch/log:/usr/local/freeswitch/log /etc/localtime:/etc/localtime:ro /opt/freeswitch/conf:/usr/local/freeswitch/conf -d freeswitch-1.10.7
 ```
 
 可以看出，这样需要输入很多参数，所以，还是使用Docker Compose比较方便。
@@ -117,14 +75,6 @@ make stop
 make start
 ```
 
-# 增加声音文件
-
-本镜像为了压缩空间，没有将声音文件打包到镜像内。如果需要挂载声音文件，可以先执行`make get-sounds`命令下载声音文件，然后修改`docker-compose.yml`的`volumes`配置，增加挂载：
-
-```yaml
-    volumes:
-      - ./sounds/:/usr/local/freeswitch/sounds:cached
-```
 
 # `host`模式网络
 
@@ -141,22 +91,3 @@ make start
 注意，该环境变量默认为`none`，它实际上是一个不存在的ACL，所以FreeSWITCH对任何来源IP都会认为它在NAT后面。
 
 如果在`host`网络模式下可以在`.env`中注释掉这个环境变量，让它使用默认的`localnet.auto`。
-
-# 制作自己的镜像
-
-你在本镜像的基础上制作自己的镜像。
-
-# 测试号码
-
-默认配置可以拨打如下测试号码：
-
-```
-9196 回音测试Echo
-888  XSWITCH技术服务电话
-3000 进入会议
-其它号码，查找本地注册用户并桥接
-```
-```
-docker run -it --network host --name freeswitch -v /data/freeswitch/conf:/usr/local/freeswitch/conf -d freeswitch-1.10.7
-docker run -it --network host --name freeswitch -v /opt/freeswitch/log:/usr/local/freeswitch/log /etc/localtime:/etc/localtime:ro /opt/freeswitch/conf:/usr/local/freeswitch/conf -d freeswitch-1.10.7
-```
