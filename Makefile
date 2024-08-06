@@ -20,10 +20,10 @@ eject: conf
 	echo conf copied to local dir, please edit docker-compose.yml to use it
 
 build:
-	docker build --build-arg VERSION=$(VERSION) -t xswitch:${VERSION} .  
+	docker build --build-arg VERSION=$(VERSION) TOKEN=$(TOKEN) -t xswitch:${VERSION} .  
 
 build-macos:
-	docker buildx build --build-arg VERSION=$(VERSION) --platform=linux/amd64 -t xswitch:${VERSION} . 
+	docker buildx build --build-arg VERSION=$(VERSION) TOKEN=$(TOKEN) --platform=linux/amd64 -t xswitch:${VERSION} . 
 
 push:
 	docker tag xswitch:${VERSION} registry.cn-shanghai.aliyuncs.com/xswitch/freeswitch:${VERSION}
