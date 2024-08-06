@@ -1,5 +1,6 @@
 SHELL = /bin/bash
-VERSION = 1.10.11
+VERSION = 1.10.12
+TOKEN = pat_CKj8GjohjcGkU3JEMsuAzfri
 
 all:
 	echo Hi

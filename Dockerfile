@@ -1,12 +1,10 @@
-FROM debian:bullseye
+FROM debian:bookworm
 
 ARG VERSION
-ENV VERSION=${VERSION}
+ARG TOKEN
 
-# 安装编译FreeSwitch，所需要依赖环境
-ENV TOKEN=pat_CKj8GjohjcGkU3JEMsuAzfri
-# RUN sed -i s@/deb.debian.org/@/mirrors.aliyun.com/@g /etc/apt/sources.list
-ADD ./sources.list /etc/apt/sources.list
+# 安装依赖环境
+RUN sed -i s@/deb.debian.org/@/mirrors.aliyun.com/@g /etc/apt/sources.list
 RUN apt-get clean && apt-get update && apt-get install -yq gnupg2 wget ca-certificates lsb-release vim sngrep
 RUN wget --http-user=signalwire --http-password=$TOKEN -O /usr/share/keyrings/signalwire-freeswitch-repo.gpg https://freeswitch.signalwire.com/repo/deb/debian-release/signalwire-freeswitch-repo.gpg
 RUN echo "machine freeswitch.signalwire.com login signalwire password $TOKEN" > /etc/apt/auth.conf
@@ -14,21 +12,19 @@ RUN echo "deb [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] htt
 RUN echo "deb-src [signed-by=/usr/share/keyrings/signalwire-freeswitch-repo.gpg] https://freeswitch.signalwire.com/repo/deb/debian-release/ `lsb_release -sc` main" >> /etc/apt/sources.list.d/freeswitch.list
 RUN apt-get update -y && apt-get build-dep freeswitch -y
 
-# 需要把下载freeswitch-1.10.11.tar.gz，解压到Dockerfile文件同级目录下，添加到docker镜像里
-# RUN cd /opt/ && wget -c https://files.freeswitch.org/releases/freeswitch/freeswitch-${VERSION}.-release.tar.gz && tar -C /opt/ -xzvf freeswitch-${VERSION}.-release.tar.gz
-ADD ./packets/freeswitch-${VERSION}.-release.tar.gz /opt/
+# 下载FreeSwitch
+RUN cd /opt/ && wget -c https://files.freeswitch.org/releases/freeswitch/freeswitch-${VERSION}.-release.tar.gz && tar -C /opt/ -xzvf freeswitch-${VERSION}.-release.tar.gz
 
 # 自定义安装freeswitch模块
-COPY ./modules.conf /opt/freeswitch-${VERSION}.-release/modules.conf
+COPY ./build/modules.conf /opt/freeswitch-${VERSION}.-release/modules.conf
 RUN cd /opt/freeswitch-${VERSION}.-release && ./configure && make -j4 && make all install &&  make cd-sounds-install cd-moh-install
 
 # 添加LuaJIT并安装
 # RUN cd /opt/ && wget -c https://luajit.org/download/LuaJIT-2.0.5.tar.gz && tar -C /opt/ -xzvf LuaJIT-2.0.5.tar.gz && cd /opt/LuaJIT-2.0.5/ && make -j4 && make install
-ADD ./packets/LuaJIT-2.0.5.tar.gz /opt/
+ADD ./build/LuaJIT-2.0.5.tar.gz /opt/
 RUN cd /opt/LuaJIT-2.0.5/ && make -j4 && make install
 
-
-ADD ./packets/lua-cjson-2.1.0.tar.gz /opt/
+ADD ./build/lua-cjson-2.1.0.tar.gz /opt/
 RUN cd /opt/lua-cjson-2.1.0 && \
     cc -c -O3 -Wall -pedantic -DNDEBUG -I/usr/local/include/luajit-2.0/ -fpic -o lua_cjson.o lua_cjson.c \
     && make -j4 && mkdir -p /usr/local/lib/lua/5.2/ && cp -rf cjson.so /usr/local/lib/lua/5.2/
@@ -39,10 +35,10 @@ RUN cd /opt/lua-cjson-2.1.0 && \
 #     && make -j4 && mkdir -p /usr/local/lib/lua/5.2/ && cp -rf cjson.so /usr/local/lib/lua/5.2/
 
 # Limits Configuration
-COPY ./freeswitch.limits.conf /etc/security/limits.d/
+COPY ./build/freeswitch.limits.conf /etc/security/limits.d/
 
 # 添加启动文件
-ADD ./docker-entrypoint.sh /opt/docker-entrypoint.sh
+ADD ./build/docker-entrypoint.sh /opt/docker-entrypoint.sh
 RUN chmod +x /opt/docker-entrypoint.sh
 
 SHELL ["/bin/bash"]
